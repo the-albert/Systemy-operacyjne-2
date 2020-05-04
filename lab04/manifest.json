@@ -1,0 +1,14 @@
+{
+    "kurs": "S1_SO2",
+    "rok": "2020",
+    "email": "ba42040@zut.edu.pl",
+    "imie": "Albert",
+    "nazwisko": "Barciakowski",
+    "indeks": "42040",
+    "grupa": "Sys.op. II_powt._4 sem._L_gr.1",
+    "zadanie": "LAB04",
+
+    "system": "Linux",
+    "kompilacja": "gcc lab04.main.c -o test -pthread -lm",
+    "uruchomienie": "./test matrix_1000_2000.txt 2"
+}

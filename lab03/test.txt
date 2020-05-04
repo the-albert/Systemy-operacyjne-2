@@ -1,0 +1,7 @@
+test
+działa
+3 linia 
+4 linia
+5 linia
+6 linia 1 znika
+dzial

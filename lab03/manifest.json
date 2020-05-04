@@ -1,0 +1,14 @@
+{
+    "kurs": "S1_SO2",
+    "rok": "2020",
+    "email": "ba42040@zut.edu.pl",
+    "imie": "Albert",
+    "nazwisko": "Barciakowski",
+    "indeks": "42040",
+    "grupa": "Sys.op. II_powt._4 sem._L_gr.1",
+    "zadanie": "LAB03",
+
+    "system": "Linux",
+    "kompilacja": "gcc lab03.main.c -o test",
+    "uruchomienie": "./test -f -s 2 -n 5 a.txt"
+}

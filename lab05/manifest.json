@@ -1,0 +1,14 @@
+{
+    "kurs": "S1_SO2",
+    "rok": "2020",
+    "email": "jn6666@zut.edu.pl",
+    "imie": "Jan",
+    "nazwisko": "Nowak",
+    "indeks": "6666",
+    "grupa": "Sys.op. II_powt._4 sem._L_gr.1",
+    "zadanie": "LAB05",
+
+    "system": "Linux",
+    "kompilacja": "gcc lab05.main.c -o pidof; ln -s ./pidof killall",
+    "uruchomienie": "./pidof vi; ./killall vi"
+}
