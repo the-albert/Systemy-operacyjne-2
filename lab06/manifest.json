@@ -1,0 +1,14 @@
+{
+    "kurs": "S1_SO2",
+    "rok": "2020",
+    "email": "jn6666@zut.edu.pl",
+    "imie": "Jan",
+    "nazwisko": "Nowak",
+    "indeks": "6666",
+    "grupa": "Sys.op. II_powt._4 sem._L_gr.1",
+    "zadanie": "LAB06",
+
+    "system": "Linux",
+    "kompilacja": "gcc lab06.server.c -o server; gcc lab06.client.c -o client",
+    "uruchomienie": "./server -p 6666; client -a 127.0.0.1 -p 6666 -s ABCD -o tolower; ./server -q"
+}
