@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <errno.h>
@@ -18,6 +19,7 @@ void print_error(char*);
 int main (int argc, char** argv)
 {
   //zmienne
+  int i;        //iterator
   int option;   //wywołana opcja
   int port;     //port serwera
   bool qf=false;//jeśli prawda wyłącz
@@ -25,6 +27,7 @@ int main (int argc, char** argv)
   int incom;    //gniazdo połączenia
   socklen_t len;//wielkość struktury cliaddr
   char msg[MSG_SIZE];//odczytywany napis
+  char bck[MSG_SIZE];//odsyłany napis
 
   struct sockaddr cliaddr;     //adres klienta
   struct sockaddr_in servaddr; //adres serwera
@@ -66,10 +69,28 @@ int main (int argc, char** argv)
   if((incom = accept(sock, (struct sockaddr*) &cliaddr, &len )) == -1)
     print_error("Nie udało się zaakceptować połączenia.");
 
-  //odczytanie wiadomości
+  //odczytanie i odesłanie wiadomości
   read(incom, msg, sizeof(msg));
-  printf("client says: %s\n", msg);
-  write(incom, "dupa", 5);
+  i = 1;
+  if(msg[0] == '1')
+    while(msg[i])
+    {
+      bck[i-1] = tolower(msg[i]);
+      i++;
+    }
+  else if(msg[0] == '2')
+    while(msg[i])
+    {
+      bck[i-1] = toupper(msg[i]);
+      i++;
+    }
+  else if(msg[0] == '3')
+    for(i=1; i<strlen(msg); i++)
+      bck[strlen(msg)-i-1] = msg[i];
+  else
+    print_error("Nierozpoznawalna operacja.");
+
+  write(incom, bck, sizeof(bck));
 
   //zamknięcie gniazd
   close(sock);

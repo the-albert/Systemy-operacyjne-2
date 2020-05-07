@@ -24,7 +24,8 @@ int main (int argc, char** argv)
   int operation;//rodzaj operacji
   bool f=false; //flaga pomocnicza
   int sock;     //socket descriptor
-  char msg[MSG_SIZE];//wysyłany napis
+  char opts[MSG_SIZE-1];  //napis użytkownika
+  char msg[MSG_SIZE]; //wysyłany napis
 
   struct sockaddr_in servaddr;  //adres serwera
 
@@ -43,7 +44,7 @@ int main (int argc, char** argv)
           port = atoi(optarg);
       break;
       case 's':
-          snprintf(msg, strlen(optarg)+1, "%s", optarg);
+          snprintf(opts, strlen(optarg)+1, "%s", optarg);
       break;
       case 'o':
             if((strcmp("tolower", optarg)) == 0)
@@ -62,8 +63,6 @@ int main (int argc, char** argv)
   if(f == false)
     print_error("Nieprawidłowe argumenty.");
 
-  printf("ip: %s, port: %d, napis: %s, operacja: %d", ip, port, msg, operation);
-
   //utworzenie gniazda
   if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     print_error("Nie udało się utworzyć gniazda.");
@@ -77,10 +76,12 @@ int main (int argc, char** argv)
     print_error("Nie udało się połączyć z serwerem.");
 
   //napisanie wiadomości
+  sprintf(msg, "%d%s", operation, opts);
   write(sock, msg, sizeof(msg));
+  //odebranie wiadomości
   bzero(msg, sizeof(msg));
   read(sock, msg, sizeof(msg));
-  printf("server says: %s\n", msg);
+  printf("\nServer says: %s\n", msg);
 
   //zamknięcie gniazd
   close(sock);
