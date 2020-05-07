@@ -5,12 +5,15 @@
 #include <errno.h>
 #include <string.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#define MSG_SIZE 128
 
 //funkcja odpowiadająca za wyświetlenie błędu i przerwanie programu
 void print_error(char*);
-
-//zmienne globalne
-char* string; //wysyłany napis
 
 int main (int argc, char** argv)
 {
@@ -20,6 +23,10 @@ int main (int argc, char** argv)
   int port;     //port
   int operation;//rodzaj operacji
   bool f=false; //flaga pomocnicza
+  int sock;     //socket descriptor
+  char msg[MSG_SIZE];//wysyłany napis
+
+  struct sockaddr_in servaddr;  //adres serwera
 
   //sprawdzenie użytych opcji
   if(argc < 9)
@@ -36,8 +43,7 @@ int main (int argc, char** argv)
           port = atoi(optarg);
       break;
       case 's':
-          string = (char*) malloc((strlen(optarg)+1)*sizeof(char));
-          snprintf(string, strlen(optarg)+1, "%s", optarg);
+          snprintf(msg, strlen(optarg)+1, "%s", optarg);
       break;
       case 'o':
             if((strcmp("tolower", optarg)) == 0)
@@ -56,10 +62,28 @@ int main (int argc, char** argv)
   if(f == false)
     print_error("Nieprawidłowe argumenty.");
 
-  printf("ip: %s, port: %d, napis: %s, operacja: %d", ip, port, string, operation);
+  printf("ip: %s, port: %d, napis: %s, operacja: %d", ip, port, msg, operation);
 
-  //zwalnianie pamięci
-    free(string);
+  //utworzenie gniazda
+  if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    print_error("Nie udało się utworzyć gniazda.");
+  //nadanie adresu
+  bzero(&servaddr, sizeof(servaddr));
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = inet_addr(ip);
+  servaddr.sin_port = htons(port);
+  //połączenie z serwerem
+  if(connect(sock, (struct sockaddr*) &servaddr, sizeof(servaddr)) == -1)
+    print_error("Nie udało się połączyć z serwerem.");
+
+  //napisanie wiadomości
+  write(sock, msg, sizeof(msg));
+  bzero(msg, sizeof(msg));
+  read(sock, msg, sizeof(msg));
+  printf("server says: %s\n", msg);
+
+  //zamknięcie gniazd
+  close(sock);
   return 0;
 }
 
@@ -68,8 +92,6 @@ void print_error(char *err)
 {
   if(errno == 0)
     errno++;
-  if(string != NULL)
-    free(string);
 
   char e[100] = "\nerror: ";
   strcat(e,err);
