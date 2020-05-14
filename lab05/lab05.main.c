@@ -24,7 +24,8 @@ int main(int argc, char** argv)
   char line[100];     //linia z pliku stat
   int i=0;            //iterator
   bool check=false;   //czy znaleziono jakieś procesy
-
+  memset(path, 0, sizeof(path));
+  memset(line, 0, sizeof(line));
   //sprawdzenie czy został podany argument (nazwa programu)
   if(argc < 2)
     print_error("Musisz podać nazwę programu jako argument.");
@@ -51,7 +52,7 @@ int main(int argc, char** argv)
           if((fdescript = open(path, O_RDONLY)) != -1)
           {
             //odczytanie i sprawdzenie czy plik dotyczy szukanego procesu
-            read(fdescript, line, sizeof(line));
+            int check = read(fdescript, line, sizeof(line)-1);
             //wykonanie dla każdego podanego argumentu
             for(i=1; i<argc; i++)
             {

@@ -25,6 +25,13 @@ int main(int argc, char *argv[])
   sigaddset(&sigmaskset, SIGTSTP);
   sigprocmask(SIG_BLOCK, &sigmaskset, NULL);
 
+  //deklaracja struktury sigaction
+    struct sigaction signal;
+    signal.sa_mask = sigmaskset;
+    signal.sa_flags = 0;
+    signal.sa_handler = handler;
+    if(sigaction(SIGINT, &signal, NULL) < 0)
+      perror("\nsigaction error.\n");
 
   //sprawdź czy argument został podany
   if(argc < 2)
@@ -37,6 +44,11 @@ int main(int argc, char *argv[])
   //zakończ jeśli argument jest o długości 1
   if(strlen(argv[1]) == 1)
   {
+    while(1)
+    {
+      if(sigcheck == true)
+        break;
+    }
     printf("%d\t%s\n" ,getpid(), argv[1]);
     return 0;
   }
@@ -79,14 +91,6 @@ int main(int argc, char *argv[])
     exit -2;
   }
 
-  //deklaracja struktury sigaction
-    struct sigaction signal;
-    signal.sa_mask = sigmaskset;
-    signal.sa_flags = 0;
-    signal.sa_handler = handler;
-    if(sigaction(SIGINT, &signal, NULL) < 0)
-      perror("\nsigaction error.\n");
-
   //wejście do nieskończonej pętli
   while(1)
   {
@@ -104,7 +108,7 @@ int main(int argc, char *argv[])
   }
 
   //wyświetlenie swojego id i argumentu
-  printf("\n%d\t%s " ,getpid(), argv[1]);
+  printf("%d\t%s\n" ,getpid(), argv[1]);
 
   //zwalnianie pamięci
   free(arg1);
@@ -116,7 +120,16 @@ int main(int argc, char *argv[])
   if(sigismember(&sigused, SIGTSTP) == 1)
     printf("\nPodczas działania programu został zablokowany SIGTSTP(Ctrl+Z).\n");
 
+  struct sigaction sigstop;
+  sigstop.sa_mask = sigmaskset;
+  sigstop.sa_flags = 0;
+  sigstop.sa_handler = handler;
+  if(sigaction(SIGTSTP, &sigstop, NULL) < 0)
+    perror("\nsigaction error.\n");
+
   //odblokowanie SIGTSTP
   sigprocmask(SIG_UNBLOCK, &sigmaskset, NULL);
+
+
   return 0;
 }

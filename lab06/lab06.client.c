@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MSG_SIZE 128
+#define MSG_SIZE 128 //maksymalna wielkość wiadomości
 
 //funkcja odpowiadająca za wyświetlenie błędu i przerwanie programu
 void print_error(char*);
