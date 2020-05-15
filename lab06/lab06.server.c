@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <poll.h>
+#include <syslog.h>
+#include <signal.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -17,6 +19,16 @@
 
 //funkcja odpowiadająca za wyświetlenie błędu i przerwanie programu
 void print_error(char*);
+
+//zmienna odpowiadająca za zatrzymanie serwera
+volatile bool stop_serv=false;
+
+//funkcja obsługująca sygnały
+static void handler(int num)
+{
+    if(num == SIGUSR1)
+        stop_serv = true;
+}
 
 int main (int argc, char** argv)
 {
@@ -32,12 +44,18 @@ int main (int argc, char** argv)
   int nfds=1;    //aktywne gniazda
   int cur_size;  //aktywne gniazda w danym momencie
   void* tmp;     //tymczasowy wskaźnik do realokacji
+  FILE* fpid;    //plik zawierający pid deamona
+  sigset_t smask;//maska sygnałów
+  char path[100];//ścieżka do pliku z pid daemona
+  char pid[10];  //zawartosc pliku z pid daemona
+  pid_t killme;  //pid daemona
   char msg[MSG_SIZE];   //odczytywany napis
   char bck[MSG_SIZE];   //odsyłany napis
-  bool stop_serv=false; //zatrzymaj serwer jeśli true
+  bool running = false; //czy istnieje instancja serwera
 
   struct pollfd* sockets;      //wskaźnik na tablicę struktur poll
   struct sockaddr_in servaddr; //adres serwera
+  struct sigaction signals;    //przechwytywanie sygnałów
 
   //sprawdzenie użytych opcji
   if(argc < 2 || argc > 3)
@@ -51,24 +69,37 @@ int main (int argc, char** argv)
     }
   }
 
+  //utworzenie ścieżki do pliku z pid daemona
+  sprintf(path, "/var/run/user/%d/myServerDeamon.pid", getuid());
+
+  //sprawdzenie czy działa już instancja serwera
+  if((access(path, F_OK)) != -1)
+    running = true;
   //wyszukanie i wyłączenie serwera
   if(qf == true)
   {
-
+    if(running == false)
+    {
+      printf("\nŻadna instancja serwera w tym momencie nie działa.\n");
+      return 0;
+    }
+    fpid = fopen(path, "r");
+    fgets(pid, sizeof(pid), fpid);
+    killme = atoi(pid);
+    kill(killme, SIGUSR1);
+    printf("\nSerwer pomyślnie wyłączony.\n");
+    return 0;
   }
+  else if(qf == false && running == true)
+    print_error("Serwer już działa.");
 
   //utworzenie serwera
   //utworzenie gniazda
-  if((serv_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+  if((serv_sock = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, 0)) == -1)
     print_error("Nie udało się utworzyć gniazda.");
   //ustawienie możliwości użycia adresu podczas time_period
   if((setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, &returned, sizeof(int)))==-1)
     print_error("Nie udało się ustawić opcji gniazda.");
-  //sprawia gniazdo jest non-blocking czyli połączenie nie będzie zatrzymywane
-  //przy takich funkcjach jak recv(), rzucą one EWOULDBLOCK na errno
-  returned = 1;
-  if((ioctl(serv_sock, FIONBIO, &returned)) == -1)
-    print_error("Nie udało się ustawić funkcji non-blocking");
 
   //nadanie adresu
   bzero(&servaddr, sizeof(servaddr));
@@ -81,25 +112,45 @@ int main (int argc, char** argv)
   //rozpoczęcie nasłuchiwania
   if(listen(serv_sock, SOMAXCONN) == -1)
     print_error("Nie udało się rozpocząć nasłuchiwania.");
+
+  //utworzenie daemona
+  if((daemon(0,0)) == -1)
+    print_error("Nie udało się utworzyć daemona.");
   //alokacja pamięci oraz przypisanie nasłuchującego gniazda
   sockets = malloc(size * sizeof(struct pollfd));
   bzero(sockets, sizeof(sockets));
   sockets[0].fd = serv_sock;
   sockets[0].events = POLLIN;
 
+  //utworzenie pliku z pid deamona
+  if((fpid = fopen(path, "w")) == NULL)
+    print_error("NIe udało się utworzyć pliku.");
+  fprintf(fpid, "%d", getpid());
+  fclose(fpid);
+
+  //ustalenie przechwytywania sygnałów
+  sigfillset(&smask);
+  signals.sa_mask = smask;
+  signals.sa_flags = 0;
+  signals.sa_handler = handler;
+  sigaction(SIGUSR1, &signals, NULL);
+
+  //otwarcie połączenia z syslogami
+  openlog("SerwerDeamon", LOG_CONS|LOG_PID|LOG_PERROR, LOG_DAEMON);
+  syslog(LOG_NOTICE, "\nStart serwera.");
   //wejście do pętli serwera
     do
   {
     //inicjacja poll
     returned = poll(sockets, nfds, 180000);
-    if(returned == -1)
+    if(returned == -1 && stop_serv == false)
     {
-        perror("\nerror: Inicjacja poll nie powiodła się.");
+        syslog(LOG_ERR, "\nerror: Inicjacja poll nie powiodła się.");
         break;
     }
     else if(returned == 0)
     {
-        printf("\nMinął czas bezczynności, wyłączanie serwera...\n");
+        syslog(LOG_NOTICE, "\nMinął czas bezczynności, wyłączanie serwera...\n");
         break;
     }
 
@@ -115,7 +166,7 @@ int main (int argc, char** argv)
       //event nie jest POLLIN działanie serwera zostaje przerwane
       if(sockets[i].revents != POLLIN)
       {
-        printf("\nerror: Niespodziewany zwracany event\n");
+        syslog(LOG_ERR, "\nerror: Niespodziewany zwracany event\n");
         stop_serv = true;
         break;
       }
@@ -133,7 +184,7 @@ int main (int argc, char** argv)
           {
             if (errno != EWOULDBLOCK)
             {
-              perror("error: Nie udało się zaakceptować połączenia.");
+              syslog(LOG_ERR, "error: Nie udało się zaakceptować połączenia.");
               stop_serv = true;
             }
             break;
@@ -149,7 +200,7 @@ int main (int argc, char** argv)
           {
             if((tmp = realloc(sockets, size*2*sizeof(struct pollfd))) == NULL)
             {
-              perror("\nerror: Nieudana realokacja pamięci.");
+              syslog(LOG_ERR, "\nerror: Nieudana realokacja pamięci.");
               stop_serv = true;
               break;
             }
@@ -165,9 +216,9 @@ int main (int argc, char** argv)
         //odczytanie informacji z gniazda
         returned = recv(sockets[i].fd, msg, sizeof(msg), 0);
         if(returned == -1)
-            perror("\nerror: Nie udało się odczytać wiadomości.");
+            syslog(LOG_ERR, "\nerror: Nie udało się odczytać wiadomości.");
         else if(returned == 0)
-            printf("\nPołączenie z klientem zostało zerwane.\n");
+            syslog(LOG_NOTICE, "\nPołączenie z klientem zostało zerwane.\n");
         //odpowiednie sformatowanie wiadomości
         else
         {
@@ -181,12 +232,12 @@ int main (int argc, char** argv)
             for(j=1; j<strlen(msg); j++)
               bck[strlen(msg)-j-1] = msg[j];
           else
-            printf("\nNierozpoznawalna operacja.\n");
+            syslog(LOG_NOTICE, "\nNierozpoznawalna operacja.\n");
         }
 
         //odesłanie wiadomości
         if((send(sockets[i].fd, bck, sizeof(bck), 0)) == -1)
-          perror("\nNie udało się odesłać wiadomości.");
+          syslog(LOG_ERR, "\nNie udało się odesłać wiadomości.");
 
         //zamknięcie gniazda
         close(sockets[i].fd);
@@ -221,7 +272,10 @@ int main (int argc, char** argv)
   close(serv_sock);
   close(incom);
   free(sockets);
-
+  //usunięcie pliku z pid daemona
+  if(remove(path) == -1)
+    syslog(LOG_ERR, "Nie udało się usunąć pliku.");
+  syslog(LOG_NOTICE, "Serwer zakończył pracę.");
   return 0;
 }
 
